@@ -1,0 +1,5 @@
+Get-ChildItem -Recurse -Include *.cpp,*.h,*.c,*.hpp | ForEach-Object {
+    $content = Get-Content $_.FullName -Raw
+    $utf8bom = [System.Text.Encoding]::UTF8
+    [System.IO.File]::WriteAllText($_.FullName, $content, $utf8bom)
+}
