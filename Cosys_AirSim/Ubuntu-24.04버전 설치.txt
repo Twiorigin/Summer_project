@@ -1,0 +1,123 @@
+Ubuntu-24.04버전 설치
+wsl --install -d Ubuntu-24.04
+
+# Ubuntu 종료
+$ wsl -t Ubuntu
+
+Airsim_ros2_pkgs 설치시
+.h 파일 만들어주기
+
+QGC 설치
+
+PX4 
+sudo apt remove --purge 'libgz*' 'gz-*' 'sdformat*'
+sudo apt update
+sudo apt install gz-harmonic libgz-sim8-dev
+
+https://discuss.px4.io/t/protoc-error-on-build/44661/2
+
+I was facing the same error while using Ubuntu 22.04 on WSL2.
+However, I followed the steps below and the issue was successfully resolved:
+
+Step 1: Remove the Existing Protobuf Version
+
+First, completely remove the version of protobuf that was installed by the package manager.
+
+sudo apt-get remove --purge protobuf-compiler libprotobuf-dev
+sudo apt-get autoremove
+
+Step 2: Download and Compile protoc 3.6.1 from Source
+
+This will download the source code, compile it on your machine, and install it.
+
+Navigate to your home directory
+cd ~
+
+Download the source code for version 3.6.1
+wget https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protobuf-all-3.6.1.tar.gz
+
+Extract the archive
+tar -xzf protobuf-all-3.6.1.tar.gz
+
+Move into the extracted directory
+cd protobuf-3.6.1
+
+Configure the build (this prepares the makefiles)
+./configure --prefix=/usr/local
+
+Compile the source code using all available processor cores
+make -j$(nproc)
+
+Install the compiled files to your system
+sudo make install
+
+Update the shared library cache so the system can find the new files
+sudo ldconfig
+
+Step 3: Verify the Installation
+
+Check that the correct version is now active on your system.
+
+protoc --version
+
+Step 4: Clean the PX4 Project Directory
+
+You must remove all old build files from your PX4 project that were created with the previous protoc version.
+
+cd ~/PX4-Autopilot
+make distclean
+
+Step 5: Restart WSL
+
+A full restart of the WSL instance is crucial to ensure all changes are applied correctly.
+
+Close your WSL terminal or type exit.
+Open a Windows Command Prompt (cmd) or PowerShell and execute: PowerShellwsl --shutdown
+Wait a few seconds, then open a new WSL terminal.
+Step 6: Attempt the Build Again
+
+Navigate back to your project folder and try to build PX4 SITL.
+
+cd ~/PX4-Autopilot
+make px4_sitl none_iris
+
+https://docs.px4.io/v1.14/en/dev_setup/dev_env_windows_wsl.html
+
+export PX4_SIM_HOST_ADDR= (windows ip)
+make px4_sitl none_iris
+
+setting.json에서 controlIp를 WSL의 ip주소로 바꾸기 windows powershell에서 ipconfig 치면 wsl용 ip가 나으므로 그거 사용하면 된다.
+방화벽 인바운드 규칙에서 tcp 4560 포트하고 UDP 14540포트 허용하기
+ "LocalHostIp": "0.0.0.0",으로 설정
+
+로컬 리포에 이 PX4 커밋이 포함되어 있지 않으면 Linux 파일을 편집하여 환경 변수를 ROMFS/px4fmu_common/init.d-posix/rcS찾고 PX4_SIM_HOST_ADDR이를 다음과 같이 PX4 시뮬레이터로 전달하는지 확인하세요.
+
+# If PX4_SIM_HOST_ADDR environment variable is empty use localhost.
+if [ -z "${PX4_SIM_HOST_ADDR}" ]; then
+    echo "PX4 SIM HOST: localhost"
+    simulator start -c $simulator_tcp_port
+else
+    echo "PX4 SIM HOST: $PX4_SIM_HOST_ADDR"
+    simulator start -t $PX4_SIM_HOST_ADDR $simulator_tcp_port
+fi
+
+ros2 airsim ros pkgs 실행시 
+41451 tcp 포트 방화벽 인바운드 규칙에서 허용해주고
+
+wsl에서 ip route | grep default 명령어 사용해서
+ip 주소 나오면 해당 ip 주소로 명령어 실행
+
+setting.json에서 
+{
+  "RpcEnabled": true,
+  "RpcPort": 41451,
+  "LocalHostIp": "0.0.0.0"
+}
+
+이거 꼭 추가해주기
+
+nc -zv 172.22.224.1 41451 명령어로
+tcp 포트 연결 가능한지 확인해주기
+
+source install/setup.bash
+ros2 launch airsim_ros_pkgs airsim_node.launch.py host_ip:=172.31.48.1
